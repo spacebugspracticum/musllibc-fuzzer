@@ -1,8 +1,10 @@
 use log::debug;
 use rust_embed::RustEmbed;
-use std::fs::{read_dir, read_to_string};
 use std::path::PathBuf;
 use tree_sitter::{Language, Node, Parser as TParser, Query, QueryCursor};
+use walkdir::WalkDir;
+use std::fs::read_to_string;
+use std::ffi::OsStr;
 
 #[derive(RustEmbed)]
 #[folder = "fuzzed_data_provider"]
@@ -83,9 +85,10 @@ impl FunctionDecl {
     ///
     /// * `tmplfile` The name of the template file to drop the harness body into. This should
     ///   either be `template.cc` or `template_manual.cc`
-    pub fn harness(&self, tmplfile: String) -> String {
+    pub fn harness(&self, tmplfile: String, file_path: String) -> String {
         let tmpl = CCAsset::get(&tmplfile).unwrap();
         let tmplfile = std::str::from_utf8(tmpl.data.as_ref()).unwrap();
+        let file_path = PathBuf::from(file_path);
         let hdr = self.sourcefile.clone();
         let fdplib = "fuzzed_data_provider.hh";
         let mut body = String::new();
@@ -109,16 +112,13 @@ impl FunctionDecl {
 
             /* If the type is an input, we fuzz its contents */
             if self.is_input(params.to_vec()) {
-                let mut arraylen = "";
                 if indir_level > 0 {
-                    arraylen = "fdp.consume<uint8_t>()";
                 }
                 body += &format!(
-                    "            {} param{} = fdp.consume<{}>({});\n",
+                    "            {} param{} = ({}) buf;\n",
                     params.join(" "),
                     i,
-                    alloctype.join(" "),
-                    arraylen
+                    params.join(" "),
                 )
                 .to_string();
                 input_params.push(format!("param{}", i));
@@ -148,6 +148,7 @@ impl FunctionDecl {
             .replace("{hdr}", &hdr)
             .replace("{fdplib}", fdplib)
             .replace("{body}", &body)
+            .replace("{file_path}", &file_path.to_str().unwrap())
     }
 }
 
@@ -339,19 +340,21 @@ pub fn extract_decls() -> Vec<FunctionDecl> {
 
     let mut decls: Vec<FunctionDecl> = Vec::new();
 
-    for header in read_dir(musl_include_dir).unwrap() {
-        if header.as_ref().unwrap().path().is_file() {
-            /* Get the file contents as a string */
-            let data = read_to_string(header.as_ref().unwrap().path())
-                .expect("Unable to read header file");
+    // read all files in musl_include_dir recursively and print filename
+    for header in WalkDir::new(musl_include_dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if header.file_type().is_file() && header.path().extension() == Some(OsStr::new("h")) {
 
-            let name = header.as_ref().unwrap().file_name();
+            let data = read_to_string(header.path()).unwrap();
+            let name = header.file_name().to_str().unwrap().to_string();
             debug!("Parsing {:?}", name);
 
             /* Filter out functions that aen't public or are unlikely to be exports (simple, by name)  */
             decls.extend(
                 parser
-                    .parse(data, name.to_string_lossy().to_string())
+                    .parse(data, name)
                     .into_iter()
                     .filter(|f| !f.name.starts_with("_") && !f.ty.join("").starts_with("static"))
                     .into_iter(),

@@ -1,23 +1,25 @@
-#include <cstddef>
-#include <cstdint>
+#include "{file_path}"
 /* Header file this harness is fuzzing against */
 #include <{hdr}>
-/* FuzzedDataProvider header library */
-#include <{fdplib}>
+#include<unistd.h>
+__AFL_FUZZ_INIT();
 
-/* Non-fuzzaable testing main for use to debug the harness */
+/* Persistent-mode fuzzing ready harness, can't use this to debug the program */
 int main() {
 
-    try {
-        FuzzedDataBroker broker;
-        FuzzedDataProvider fdp(broker.data(), broker.size());
-        /* clang-format off */
-{body}
-        /* clang-format on */
-    } catch (FuzzedDataProviderException &e) {
-        printf("%s\n", e.what());
-        return 1;
-    }
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+    __AFL_INIT();
+#endif
 
+    uint8_t *data = (uint8_t *)__AFL_FUZZ_TESTCASE_BUF;
+
+    while (__AFL_LOOP(10000)) {
+        size_t len = (size_t)__AFL_FUZZ_TESTCASE_LEN;
+
+        char buf[1000];
+        read(0,buf,1000);
+{body}
+
+	}
     return 0;
 }

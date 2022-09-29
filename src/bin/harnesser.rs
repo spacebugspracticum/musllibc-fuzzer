@@ -23,6 +23,9 @@ fn main() -> Result<(), Error> {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
+    //get path name from env "FILE_SOURCE"
+    let file_source = std::env::var("FILE_SOURCE").unwrap();
+
     // Extract musl libc header declarations
     let args = Args::parse();
     assert!(!args.functions.is_empty());
@@ -66,13 +69,10 @@ fn main() -> Result<(), Error> {
         .map(|f| -> (String, String, FunctionDecl) { (f.name.clone(), f.proto(), f.clone()) })
     {
         info!("Generating fuzzer for {}: {}", funcname, proto);
-        let fuzz_harness = func.harness("template.cc".to_string());
-        let manual_harness = func.harness("template_manual.cc".to_string());
-        info!("Harness code:\n{}", fuzz_harness.clone());
+        let manual_harness = func.harness("template_manual.cc".to_string(), file_source.to_string());
+        info!("Harness code:\n{}", manual_harness.clone());
 
-        write(format!("harness-{}.cc", funcname), fuzz_harness)
-            .expect("Could not write harness file.");
-        write(format!("harness-{}-manual.cc", funcname), manual_harness)
+        write(format!("harness-{}.cc", funcname), manual_harness)
             .expect("Could not write harness file.");
 
         /* Replicate the musl-clang script for afl-clang-lto++ also */
@@ -81,51 +81,12 @@ fn main() -> Result<(), Error> {
         let libcpp_lib = PathBuf::from("/usr/lib/llvm-14/lib");
         let fdp_hdr_path = cwd.join("fuzzed_data_provider");
 
-        Command::new("afl-clang-fast++")
+        // afl-clang harness-dn_skipname-manual.cc -static -o custom -I musl/install/include/ 
+        Command::new("afl-clang-fast")
             .arg("-I")
             .arg(fdp_hdr_path.to_string_lossy().to_string())
-            .arg("-I")
-            .arg(libcpp_include.to_string_lossy().to_string())
-            .arg("-L")
-            .arg(libcpp_lib.to_string_lossy().to_string())
-            .arg("-stdlib=libc++")
-            .arg("-D_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE")
-            // .arg("--sysroot")
-            // .arg(sysroot.to_string_lossy().to_string())
             .arg("-g")
             .arg("-O0")
-            // .arg("-O3")
-            // .arg("-funroll-loops")
-            .arg("-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1")
-            .arg("-o")
-            .arg(format!("harness-{}", funcname))
-            .arg(format!("harness-{}.cc", funcname))
-            .env("AR", "llvm-ar-14")
-            .env("RANLIB", "llvm-ranlib-14")
-            .env("CC", which("clang-14").expect("clang-14 is not installed."))
-            .env(
-                "CXX",
-                which("clang++-14").expect("clang++-14 is not installed."),
-            )
-            .current_dir(cwd.clone())
-            .status()
-            .expect("Could not compile harness.");
-
-        Command::new("clang++")
-            .arg("-I")
-            .arg(fdp_hdr_path.to_string_lossy().to_string())
-            .arg("-I")
-            .arg(libcpp_include.to_string_lossy().to_string())
-            .arg("-L")
-            .arg(libcpp_lib.to_string_lossy().to_string())
-            .arg("-stdlib=libc++")
-            .arg("-D_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE")
-            // .arg("--sysroot")
-            // .arg(sysroot.to_string_lossy().to_string())
-            .arg("-g")
-            .arg("-O0")
-            // .arg("-O3")
-            // .arg("-funroll-loops")
             .arg("-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1")
             .arg("-o")
             .arg(format!("harness-{}-manual", funcname))
