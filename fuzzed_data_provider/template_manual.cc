@@ -11,11 +11,7 @@ int main() {
     __AFL_INIT();
 #endif
 
-    uint8_t *data = (uint8_t *)__AFL_FUZZ_TESTCASE_BUF;
-
     while (__AFL_LOOP(10000)) {
-        size_t len = (size_t)__AFL_FUZZ_TESTCASE_LEN;
-
         char buf[1000];
         read(0,buf,1000);
 {body}
