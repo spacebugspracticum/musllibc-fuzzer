@@ -1,11 +1,10 @@
 /// ::crate-lib-name::path::to::item;
 use ::libc_fuzzer::{extract_decls, FunctionDecl};
 use clap::Parser;
-use log::{error, info, warn};
+use log::{info, warn};
 use std::env::current_dir;
 use std::fs::write;
-use std::io::{Error, ErrorKind};
-use std::path::PathBuf;
+use std::io::{Error};
 use std::process::Command;
 use which::which;
 
@@ -23,12 +22,34 @@ fn main() -> Result<(), Error> {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    //get path name from env "FILE_SOURCE"
-    let file_source = std::env::var("FILE_SOURCE").unwrap();
-
     // Extract musl libc header declarations
     let args = Args::parse();
     assert!(!args.functions.is_empty());
+
+    // run "grep -iR function_name( musl/install/include/" and use the first result as FILE_SOURCE
+    let mut cmd = Command::new("grep");
+    cmd.arg("-Rl");
+    cmd.arg(args.functions[0].clone());
+    cmd.arg("musl/install/include/"); // cmd | head -1
+    let output = cmd.output().expect("failed to execute process");
+    let output_str = String::from_utf8_lossy(&output.stdout); // use only the first line of the output
+    // be graceful and allow None
+    let output_str = output_str.lines().next().unwrap_or("");
+    let mut file_source = output_str.to_string();
+
+    // if file_source is empty, then run "grep -iR function_name musl/src/" and use the first result as FILE_SOURCE
+    if output_str == "" {
+        let mut cmd = Command::new("grep");
+        cmd.arg("-Rl");
+        cmd.arg(args.functions[0].clone());
+        cmd.arg("musl/src/"); // cmd | head -1
+        let output = cmd.output().expect("failed to execute process");
+        let output_str = String::from_utf8_lossy(&output.stdout); // use only the first line of the output
+        // be graceful and allow None
+        let output_str = output_str.lines().next().unwrap_or("");
+        file_source = output_str.to_string();
+    }
+
     let decls = extract_decls();
     info!("Found {} functions.", decls.len());
 
@@ -59,8 +80,8 @@ fn main() -> Result<(), Error> {
     }
 
     if to_fuzz.is_empty() {
-        error!("No functions to fuzz!");
-        return Err(Error::new(ErrorKind::Other, "No functions to fuzz!"));
+        warn!("No functions to fuzz in headers!");
+        //return Err(Error::new(ErrorKind::Other, "No functions to fuzz!"));
     }
 
     // Generate harnesses and compile them
@@ -77,14 +98,17 @@ fn main() -> Result<(), Error> {
 
         /* Replicate the musl-clang script for afl-clang-lto++ also */
         let cwd = current_dir().unwrap();
-        let libcpp_include = PathBuf::from("/usr/lib/llvm-14/include/c++/v1");
-        let libcpp_lib = PathBuf::from("/usr/lib/llvm-14/lib");
         let fdp_hdr_path = cwd.join("fuzzed_data_provider");
 
-        // afl-clang harness-dn_skipname-manual.cc -static -o custom -I musl/install/include/ 
-        Command::new("afl-clang-fast")
+        Command::new("afl-clang-fast++")
+            //.arg("-m32")
             .arg("-I")
             .arg(fdp_hdr_path.to_string_lossy().to_string())
+            .arg("-I")
+            .arg("./musl/install/include/")
+            .arg("-L")
+            .arg("musl/install/lib/libc.a")
+            .arg("-lc")
             .arg("-g")
             .arg("-O0")
             .arg("-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1")

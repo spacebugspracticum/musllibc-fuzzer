@@ -53,6 +53,10 @@ impl FunctionDecl {
     /// * Whether the parameter is probably used as input to the function and should
     ///   contain fuzzer data
     fn is_input(&self, param: Vec<String>) -> bool {
+        // if param is void pointer, it is probably an input (free)
+        if param == vec!["void".to_string(), "*".to_string()] {
+            return true;
+        }
         if param.contains(&"*".to_string()) {
             return param.contains(&"const".to_string());
         } else {
@@ -114,13 +118,20 @@ impl FunctionDecl {
             if self.is_input(params.to_vec()) {
                 if indir_level > 0 {
                 }
+                // make a copy of "params" as cleaned_params
+                // if cleaned_params contains "int", replace it with "int32_t"
+                let mut cleaned_params = params.clone();
+                if cleaned_params.contains(&"int".to_string()) {
+                    let pos = cleaned_params.iter().position(|p| *p == "int").unwrap();
+                    cleaned_params[pos] = "intptr_t".to_string();
+                }
                 body += &format!(
                     "            {} param{} = ({}) buf;\n",
                     params.join(" "),
                     i,
-                    params.join(" "),
+                    cleaned_params.join(" "),
                 )
-                .to_string();
+                    .to_string();
                 input_params.push(format!("param{}", i));
             /* If the type isn't an input, we just allocate space and assume it is an output */
             } else {
@@ -137,13 +148,29 @@ impl FunctionDecl {
         }
 
         /* Insert the call to the function */
-        body += &format!(
-            "            {} rv = {}({});\n",
-            self.ty.join(" "),
-            self.name,
-            input_params.join(", ")
-        )
-        .to_string();
+        // if self.ty == vec!["void".to_string()] , then we don't need to return anything
+        if self.ty == vec!["void".to_string()] {
+            body += &format!(
+                "            {}({});\n",
+                self.name,
+                input_params.join(", ")
+            )
+            .to_string();
+        } else {
+            body += &format!(
+                "            auto ret = {}({});\n",
+                self.name,
+                input_params.join(", ")
+            )
+            .to_string();
+        }
+        //body += &format!(
+        //    "            {} rv = {}({});\n",
+        //    self.ty.join(" "),
+        //    self.name,
+        //    input_params.join(", ")
+        //)
+        //.to_string();
         tmplfile
             .replace("{hdr}", &hdr)
             .replace("{fdplib}", fdplib)
