@@ -114,6 +114,15 @@ impl FunctionDecl {
                 alloctype.remove(alloctype.iter().position(|p| *p == "const").unwrap());
             }
 
+            // if parameter contains * __restrict, remove * __restrict
+            if alloctype.contains(&"*".to_string()) && alloctype.contains(&"__restrict".to_string()) {
+                alloctype.remove(alloctype.iter().position(|p| *p == "*").unwrap());
+                alloctype.remove(alloctype.iter().position(|p| *p == "__restrict").unwrap());
+            }
+            if alloctype.contains(&"__restrict".to_string()) {
+                alloctype.remove(alloctype.iter().position(|p| *p == "__restrict").unwrap());
+            }
+
             /* If the type is an input, we fuzz its contents */
             if self.is_input(params.to_vec()) {
                 if indir_level > 0 {

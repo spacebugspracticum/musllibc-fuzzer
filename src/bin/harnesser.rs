@@ -83,7 +83,7 @@ fn main() -> Result<(), Error> {
         warn!("No functions to fuzz in headers!");
         //return Err(Error::new(ErrorKind::Other, "No functions to fuzz!"));
     }
-
+    
     // Generate harnesses and compile them
     for (funcname, proto, func) in to_fuzz
         .iter()
