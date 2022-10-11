@@ -56,7 +56,6 @@ fn main() -> Result<(), io::Error> {
         /* Configure musl libc with clang */
         Command::new("./configure")
             .arg(&format!("--prefix={}/install", musl_dir.clone()))
-            .arg("--disable-shared")
             .env("LLVM_CONFIG", llvm_config_14.clone())
             .env("CC", afl_clang_fast.clone())
             .env("CXX", afl_clangpp_fast.clone())
@@ -70,6 +69,8 @@ fn main() -> Result<(), io::Error> {
             .expect("Couldn't configure musl-libc using afl-clang-fast.");
 
         Command::new("make")
+            .arg("all")
+            .arg("-j64")
             .env("LLVM_CONFIG", llvm_config_14.clone())
             .env("CC", afl_clang_fast.clone())
             .env("CXX", afl_clangpp_fast.clone())
@@ -84,6 +85,7 @@ fn main() -> Result<(), io::Error> {
 
         Command::new("make")
             .arg("install")
+            .arg("-j64")
             .current_dir(musl_dir.clone())
             .status()
             .expect("Couldn't install musl-libc.");
