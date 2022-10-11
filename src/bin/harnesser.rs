@@ -99,6 +99,11 @@ fn main() -> Result<(), Error> {
         /* Replicate the musl-clang script for afl-clang-lto++ also */
         let cwd = current_dir().unwrap();
         let fdp_hdr_path = cwd.join("fuzzed_data_provider");
+
+        // copy musl/lib/libc.so to libd.so
+        let mut cmd = Command::new("cp");
+        cmd.arg("musl/install/lib/libc.so");
+        cmd.arg("libd.so");
         
         //  afl-clang-fast++ -O0 harness-atoi.cc -I musl/install/include musl/install/lib/libc.so -o harness-atoi
         Command::new("afl-clang-fast++")
@@ -107,7 +112,7 @@ fn main() -> Result<(), Error> {
             .arg(fdp_hdr_path.to_string_lossy().to_string())
             .arg("-I")
             .arg("./musl/install/include/")
-            .arg("musl/lib/libc.so")
+            .arg("./libd.so")
             .arg("-g")
             .arg("-O0")
             .arg("-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1")
