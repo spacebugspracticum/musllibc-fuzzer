@@ -104,6 +104,7 @@ fn main() -> Result<(), Error> {
         let mut cmd = Command::new("cp");
         cmd.arg("musl/install/lib/libc.so");
         cmd.arg("libd.so");
+        cmd.output().expect("failed to execute process");
         
         //  afl-clang-fast++ -O0 harness-atoi.cc -I musl/install/include musl/install/lib/libc.so -o harness-atoi
         Command::new("afl-clang-fast++")
