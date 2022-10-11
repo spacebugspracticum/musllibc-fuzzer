@@ -102,7 +102,7 @@ fn main() -> Result<(), Error> {
 
         // copy musl/lib/libc.so to libd.so
         let mut cmd = Command::new("cp");
-        cmd.arg("musl/install/lib/libc.so");
+        cmd.arg("musl/lib/libc.so");
         cmd.arg("libd.so");
         cmd.output().expect("failed to execute process");
         
