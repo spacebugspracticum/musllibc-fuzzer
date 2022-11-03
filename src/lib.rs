@@ -172,16 +172,16 @@ impl FunctionDecl {
             .to_string();
         } else {
             if self.ty == vec!["int".to_string()] {
-                print_stmt += &format!(r#"            printf("{}",ret);\n"#,"%d"); 
+                print_stmt += &format!(r#"            printf("{}",ret);"#,"%d"); 
             }
             else if self.ty == vec!["char *".to_string()] {
                 print_stmt += &format!("            printf({},ret);","%s");
             }
             else {
-                print_stmt += &format!("            printf({},ret);\n","%x"); 
+                print_stmt += &format!("            printf({},ret);","%x"); 
             }
             body += &format!(
-                "            {} ret = {}({});\n{}",
+                "            {} ret = {}({});\n{}\n",
                 self.ty.join(" "),
                 self.name,
                 input_params.join(", "),
