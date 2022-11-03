@@ -70,6 +70,8 @@ impl FunctionDecl {
     ///
     /// * A human readable string of the function prototype
     pub fn proto(&self) -> String {
+        debug!("{}",self.ty.join(" "));
+        debug!("{}",self.name);
         return format!(
             "{} {}({})",
             self.ty.join(" "),
@@ -81,6 +83,7 @@ impl FunctionDecl {
                 .collect::<Vec<String>>()
                 .join(", ")
         );
+        
     }
 
     /// Generate the harness CC code to wrap the desired library function
@@ -97,6 +100,8 @@ impl FunctionDecl {
         let fdplib = "fuzzed_data_provider.hh";
         let mut body = String::new();
         let mut input_params = Vec::new();
+        let mut print_stmt = String::new();
+        
         for (i, params) in self.params.iter().enumerate() {
             /* Kind of dumb, but this does work to check the level of indirection generally */
             let indir_level = params.iter().filter(|p| -> bool { p == &"*" }).count();
@@ -166,10 +171,21 @@ impl FunctionDecl {
             )
             .to_string();
         } else {
+            if self.ty == vec!["int".to_string()] {
+                print_stmt += &format!(r#"            printf("{}",ret);\n"#,"%d"); 
+            }
+            else if self.ty == vec!["char *".to_string()] {
+                print_stmt += &format!("            printf({},ret);","%s");
+            }
+            else {
+                print_stmt += &format!("            printf({},ret);\n","%x"); 
+            }
             body += &format!(
-                "            auto ret = {}({});\n",
+                "            {} ret = {}({});\n{}",
+                self.ty.join(" "),
                 self.name,
-                input_params.join(", ")
+                input_params.join(", "),
+                print_stmt
             )
             .to_string();
         }
@@ -182,7 +198,6 @@ impl FunctionDecl {
         //.to_string();
         tmplfile
             .replace("{hdr}", &hdr)
-            .replace("{fdplib}", fdplib)
             .replace("{body}", &body)
             .replace("{file_path}", &file_path.to_str().unwrap())
     }
@@ -385,7 +400,7 @@ pub fn extract_decls() -> Vec<FunctionDecl> {
 
             let data = read_to_string(header.path()).unwrap();
             let name = header.file_name().to_str().unwrap().to_string();
-            debug!("Parsing {:?}", name);
+            // debug!("Parsing {:?}", name);
 
             /* Filter out functions that aen't public or are unlikely to be exports (simple, by name)  */
             decls.extend(
@@ -397,9 +412,8 @@ pub fn extract_decls() -> Vec<FunctionDecl> {
             );
         }
     }
-    for func in decls.iter() {
-        debug!("{} {}({:?})", func.ty.join(" "), func.name, func.params)
-    }
+    // 
+    
 
     decls
 }

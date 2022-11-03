@@ -90,7 +90,7 @@ fn main() -> Result<(), Error> {
         .map(|f| -> (String, String, FunctionDecl) { (f.name.clone(), f.proto(), f.clone()) })
     {
         info!("Generating fuzzer for {}: {}", funcname, proto);
-        let manual_harness = func.harness("template_manual.cc".to_string(), file_source.to_string());
+        let manual_harness = func.harness("template_repl.cc".to_string(), file_source.to_string());
         info!("Harness code:\n{}", manual_harness.clone());
 
         write(format!("harness-{}.cc", funcname), manual_harness)
