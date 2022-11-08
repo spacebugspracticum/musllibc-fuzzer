@@ -100,6 +100,103 @@ impl FunctionDecl {
         let fdplib = "fuzzed_data_provider.hh";
         let mut body = String::new();
         let mut input_params = Vec::new();
+        for (i, params) in self.params.iter().enumerate() {
+            /* Kind of dumb, but this does work to check the level of indirection generally */
+            let indir_level = params.iter().filter(|p| -> bool { p == &"*" }).count();
+
+            /* The alloctype is the type that will be passed into fdp.consume<ALLOCTYPE>() */
+            let mut alloctype = params.clone();
+
+            /* Remove a level of indirection if there is one */
+            if indir_level > 0 {
+                alloctype.pop();
+            }
+
+            /* Remove a const from the type to pass to template parameter if there is one */
+            if alloctype.first().unwrap() == "const" {
+                alloctype.remove(alloctype.iter().position(|p| *p == "const").unwrap());
+            }
+
+            // if parameter contains * __restrict, remove * __restrict
+            if alloctype.contains(&"*".to_string()) && alloctype.contains(&"__restrict".to_string()) {
+                alloctype.remove(alloctype.iter().position(|p| *p == "*").unwrap());
+                alloctype.remove(alloctype.iter().position(|p| *p == "__restrict").unwrap());
+            }
+            if alloctype.contains(&"__restrict".to_string()) {
+                alloctype.remove(alloctype.iter().position(|p| *p == "__restrict").unwrap());
+            }
+
+            /* If the type is an input, we fuzz its contents */
+            if self.is_input(params.to_vec()) {
+                if indir_level > 0 {
+                }
+                // make a copy of "params" as cleaned_params
+                // if cleaned_params contains "int", replace it with "int32_t"
+                let mut cleaned_params = params.clone();
+                if cleaned_params.contains(&"int".to_string()) {
+                    let pos = cleaned_params.iter().position(|p| *p == "int").unwrap();
+                    cleaned_params[pos] = "intptr_t".to_string();
+                }
+                body += &format!(
+                    "            {} param{} = ({}) buf;\n",
+                    params.join(" "),
+                    i,
+                    cleaned_params.join(" "),
+                )
+                    .to_string();
+                input_params.push(format!("param{}", i));
+            /* If the type isn't an input, we just allocate space and assume it is an output */
+            } else {
+                body += &format!(
+                    "            {} param{} = new {}[1];\n",
+                    params.join(" "),
+                    i,
+                    alloctype.join(" ")
+                )
+                .to_string();
+                // TODO: & ?
+                input_params.push(format!("param{}", i));
+            }
+        }
+
+        /* Insert the call to the function */
+        // if self.ty == vec!["void".to_string()] , then we don't need to return anything
+        if self.ty == vec!["void".to_string()] {
+            body += &format!(
+                "            {}({});\n",
+                self.name,
+                input_params.join(", ")
+            )
+            .to_string();
+        } else {
+            body += &format!(
+                "            auto ret = {}({});\n",
+                self.name,
+                input_params.join(", ")
+            )
+            .to_string();
+        }
+        //body += &format!(
+        //    "            {} rv = {}({});\n",
+        //    self.ty.join(" "),
+        //    self.name,
+        //    input_params.join(", ")
+        //)
+        //.to_string();
+        tmplfile
+            .replace("{hdr}", &hdr)
+            .replace("{fdplib}", fdplib)
+            .replace("{body}", &body)
+            .replace("{file_path}", &file_path.to_str().unwrap())
+    }
+    
+    pub fn repl_harness(&self, tmplfile: String, file_path: String) -> String {
+        let tmpl = CCAsset::get(&tmplfile).unwrap();
+        let tmplfile = std::str::from_utf8(tmpl.data.as_ref()).unwrap();
+        let file_path = PathBuf::from(file_path);
+        let hdr = self.sourcefile.clone();
+        let mut body = String::new();
+        let mut input_params = Vec::new();
         let mut print_stmt = String::new();
         
         for (i, params) in self.params.iter().enumerate() {

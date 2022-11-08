@@ -1,4 +1,6 @@
 /target
+*.cc
 harness*
 musl/
 src/fuzzed_data_provider/test
+libd.so

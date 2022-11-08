@@ -90,36 +90,36 @@ fn main() -> Result<(), Error> {
         .map(|f| -> (String, String, FunctionDecl) { (f.name.clone(), f.proto(), f.clone()) })
     {
         info!("Generating fuzzer for {}: {}", funcname, proto);
-        let manual_harness = func.harness("template_manual.cc".to_string(), file_source.to_string());
+        let manual_harness = func.repl_harness("template_repl.cc".to_string(), file_source.to_string());
         info!("Harness code:\n{}", manual_harness.clone());
 
-        write(format!("harness-{}.cc", funcname), manual_harness)
+        write(format!("harness-repl-{}.cc", funcname), manual_harness)
             .expect("Could not write harness file.");
 
-        /* Replicate the musl-clang script for afl-clang-lto++ also */
+        
         let cwd = current_dir().unwrap();
-        let fdp_hdr_path = cwd.join("fuzzed_data_provider");
+        // info!("Path is {}",cwd);
+        println!("{}", cwd.display());
+        // let fdp_hdr_path = cwd.join("fuzzed_data_provider");
 
         // copy musl/lib/libc.so to libd.so
         let mut cmd = Command::new("cp");
-        cmd.arg("musl/lib/libc.so");
-        cmd.arg("libd.so");
+        cmd.arg("musl/install/lib/libc.so");
+        cmd.arg("./libd.so");
         cmd.output().expect("failed to execute process");
         
         //  afl-clang-fast++ -O0 harness-atoi.cc -I musl/install/include musl/install/lib/libc.so -o harness-atoi
-        Command::new("afl-clang-fast++")
+        Command::new("clang")
             //.arg("-m32")
-            .arg("-I")
-            .arg(fdp_hdr_path.to_string_lossy().to_string())
+            
             .arg("-I")
             .arg("./musl/install/include/")
             .arg("./libd.so")
             .arg("-g")
             .arg("-O0")
-            .arg("-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1")
             .arg("-o")
-            .arg(format!("harness-{}", funcname))
-            .arg(format!("harness-{}.cc", funcname))
+            .arg(format!("harness-repl-{}", funcname))
+            .arg(format!("harness-repl-{}.cc", funcname))
             .env("AR", "llvm-ar-14")
             .env("RANLIB", "llvm-ranlib-14")
             .env("CC", which("clang-14").expect("clang-14 is not installed."))
