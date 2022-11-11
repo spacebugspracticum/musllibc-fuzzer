@@ -272,10 +272,10 @@ impl FunctionDecl {
                 print_stmt += &format!(r#"            printf("{}",ret);"#,"%d"); 
             }
             else if self.ty == vec!["char *".to_string()] {
-                print_stmt += &format!(r#"            printf({},ret);"#,"%s");
+                print_stmt += &format!(r#"            printf("{}",ret);"#,"%s");
             }
             else {
-                print_stmt += &format!(r#"            printf({},ret);"#,"%x"); 
+                print_stmt += &format!(r#"            printf("{}",ret);"#,"%x"); 
             }
             body += &format!(
                 "            {} ret = {}({});\n{}\n",
