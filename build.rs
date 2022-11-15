@@ -38,19 +38,20 @@ fn main() -> Result<(), io::Error> {
     // println!("cargo:rustc-link-search=native={}", cwd);
 
     /* Delete the existing musl libc directory if one exists */
-    if !Path::new(&musl_dir).is_dir() {
+    
+    //if !Path::new(&musl_dir).is_dir() {
         /* Clone a fresh musl libc directory */
-        Command::new("git")
-            .arg("clone")
-            .arg("-b")
-            .arg("v1.1.7")
-            .arg("git://git.musl-libc.org/musl")
+    //    Command::new("git")
+    //        .arg("clone")
+    //        .arg("-b")
+    //        .arg("v1.1.7")
+    //        .arg("git://git.musl-libc.org/musl")
             //.arg("https://github.com/novafacing/libmusl.git")
-            .arg("musl")
-            .current_dir(cwd.clone())
-            .status()
-            .expect("Could not clone musl-libc.");
-    }
+    //        .arg("musl")
+    //        .current_dir(cwd.clone())
+    //        .status()
+    //        .expect("Could not clone musl-libc.");
+    //}
 
     if !Path::new(&musl_output_dir).is_dir() {
         /* Configure musl libc with clang */
