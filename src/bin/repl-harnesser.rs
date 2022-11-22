@@ -120,6 +120,7 @@ fn main() -> Result<(), Error> {
             .arg("-o")
             .arg(format!("harness-repl-{}", funcname))
             .arg(format!("harness-repl-{}.cc", funcname))
+
             .env("AR", "llvm-ar-14")
             .env("RANLIB", "llvm-ranlib-14")
             .env("CC", which("clang-14").expect("clang-14 is not installed."))
