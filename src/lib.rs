@@ -134,6 +134,10 @@ impl FunctionDecl {
                     let pos = cleaned_params.iter().position(|p| *p == "int").unwrap();
                     cleaned_params[pos] = "intptr_t".to_string();
                 }
+                if cleaned_params.contains(&"double".to_string()) {
+                    let pos = cleaned_params.iter().position(|p| *p == "double").unwrap();
+                    cleaned_params[pos] = "*reinterpret_cast<double*>(buf)); //".to_string();
+                }
                 body += &format!(
                     "            {} param{} = ({}) buf;\n",
                     params.join(" "),
